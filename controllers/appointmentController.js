@@ -25,7 +25,7 @@ const bookAppointment = (req, res) => {
 
     // Query to retrieve the IDs based on names and fetch hospital address
     const getIdsQuery = `
-        SELECT hospitals.id_hospital, hospitals.adresse AS hospital_address, hospital_cnv.id AS hospital_cnv_id, 
+        SELECT hospitals.id_hospital, hospitals.adresse AS hospital_address, hospital_cnv.id_hospital AS hospital_cnv_id, 
                doctors.id AS doctor_id, patients.id AS patient_id, users.id AS user_id, pattern.id AS motif_id 
         FROM hospitals
         JOIN hospital_cnv ON hospital_cnv.id_hospital = hospitals.id_hospital
@@ -50,8 +50,8 @@ const bookAppointment = (req, res) => {
 
         // Check doctor availability
         const availabilityQuery = `
-            SELECT start_at, ends_at, pause_from, pause_to, pattern_id FROM availability_hours 
-            WHERE id_doctor = ? AND day = ? AND is_available = 1
+            SELECT start_at, end_at, pause_from, pause_to, patern_id as pattern_id FROM availability_hours 
+            WHERE doctor_id = ? AND day = ? AND is_available = 1
         `;
 
         pool.query(availabilityQuery, [doctor_id, appointmentDay], (err, availabilityResult) => {
@@ -59,6 +59,7 @@ const bookAppointment = (req, res) => {
                 console.error('Error checking availability:', err);
                 return res.status(500).json({ message: 'Failed to check doctor availability.' });
             }
+            console.log("Availability result:", JSON.stringify(availabilityResult, null, 2));
 
             if (availabilityResult.length === 0) {
                 return res.status(400).json({ message: 'Doctor is not available on this day.' });
@@ -77,6 +78,8 @@ const bookAppointment = (req, res) => {
             }
 
             // Ensure motif_id matches pattern_id
+            console.log("Retrieved motif_id:", motif_id);
+            console.log("Doctor's availability pattern_id:", pattern_id);
             if (motif_id !== pattern_id) {
                 return res.status(400).json({ message: 'The appointment type is not allowed during this availability.' });
             }
@@ -101,7 +104,7 @@ const bookAppointment = (req, res) => {
                 // Insert the appointment
                 const insertQuery = `
                     INSERT INTO appointments 
-                    (hospital_id, doctor_id, user_id, patient_id, hospital_name, patient_name, doctor_name, address, appointment_at, start_at, ends_at, motif_id, appointment_status_id, cancel)
+                    (hospital_id, doctor_id, user_id, patient_id, hospital, patient, doctor, address, appointment_at, start_at, ends_at, motif_id, appointment_status_id, cancel)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
                 `;
 
