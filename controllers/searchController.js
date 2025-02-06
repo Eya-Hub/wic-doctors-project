@@ -184,6 +184,4 @@ const search = (req, res) => {
 };
 
 // Export the function
-module.exports = {
-    search,
-};
+module.exports = {search,};

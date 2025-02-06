@@ -30,7 +30,7 @@ const bookAppointment = (req, res) => {
         FROM hospitals
         JOIN hospital_cnv ON hospital_cnv.id_hospital = hospitals.id_hospital
         JOIN doctors ON doctors.hospital_id = hospitals.id_hospital
-        JOIN patients ON patients.first_name = ?
+        JOIN patients ON patients.name = ?
         JOIN users ON users.name = ?
         JOIN pattern ON pattern.nom = ?
         WHERE hospitals.Name = ? AND doctors.name = ?
