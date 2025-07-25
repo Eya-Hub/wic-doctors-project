@@ -2,186 +2,135 @@ const pool = require('../config/database'); // Database connection
 
 // Combined search function
 const search = (req, res) => {
-    const { hospital_name, doctor_name, location, speciality} = req.query;
+    const { hospital_name, doctor_name, location, speciality } = req.query;
+
+    console.log('Received query parameters:', req.query);
 
     // Validate that at least one search parameter is provided
     if (!hospital_name && !doctor_name && !location && !speciality) {
-        return res.status(400).json({ message: 'At least one search parameter is required (hospital_name, doctor_name,location, or speciality ).' });
+        console.log('Validation failed: No search parameters provided');
+        return res.status(400).json({ message: 'At least one search parameter is required (hospital_name, doctor_name, location, or speciality).' });
     }
 
     let sqlQuery;
     let searchValues = [];
 
-    if (hospital_name && doctor_name) {
-        // Search for doctors in a specific hospital by name
+    // Hospital search logic
+    if (hospital_name || location || speciality) {
+        console.log('Performing hospital search');
         sqlQuery = `
             SELECT 
-                doctors.name AS doctor_name, 
-                doctors.price, 
-                doctors.discount_price, 
-                doctors.description, 
-                doctors.session_duration, 
-                specialities.name AS speciality, 
-                hospitals.Name AS hospital_name, 
-                hospitals.Sector, 
-                hospitals.Location, 
-                hospitals.adresse, 
-                hospitals.Phone
+                d.id AS doctor_id,
+                h.id_hospital,
+                d.name AS doctor_name, 
+                d.price, 
+                d.description, 
+                d.session_duration, 
+                s.name AS speciality, 
+                h.Name AS hospital_name, 
+                h.Sector, 
+                h.Location, 
+                h.adresse, 
+                h.Phone
             FROM 
-                doctors
+                doctors d
             JOIN 
-                specialities ON specialities.id = doctors.speciality_id
+                specialities s ON s.id = d.speciality_id
             JOIN 
-                hospital_cnv ON hospital_cnv.id_hospital = doctors.hospital_id
+                hospital_cnv hc ON hc.id_hospital = d.hospital_id
             JOIN 
-                hospitals ON hospitals.id_hospital = hospital_cnv.id_hospital
+                hospitals h ON h.id_hospital = hc.id_hospital
             WHERE 
-                doctors.name LIKE ? AND hospitals.Name LIKE ?
+                1=1
         `;
-        searchValues.push(`%${doctor_name}%`, `%${hospital_name}%`);
-    } 
-    else if (hospital_name) {
-        
-        // Search for hospitals by name
-        sqlQuery = `
-    SELECT 
-        hospitals.Name, 
-        hospitals.Sector, 
-        hospitals.Location, 
-        hospitals.adresse, 
-        hospitals.Phone
-    FROM 
-        hospitals, hospital_cnv
-    WHERE 
-        hospitals.Name LIKE ? AND hospital_cnv.id_hospital = hospitals.id_hospital
-        `;
-        searchValues.push(`%${hospital_name}%`);
-    } 
-    
-    else if (doctor_name) {
-        // Validate that at least 3 characters are provided for doctor search
-        if (doctor_name.length < 3) {
-            return res.status(400).json({ message: 'Please enter at least 3 characters to search for doctors.' });
+
+        // Add conditions based on provided parameters
+        if (hospital_name) {
+            sqlQuery += ` AND h.Name LIKE ?`;
+            searchValues.push(`%${hospital_name}%`);
         }
+        if (location) {
+            sqlQuery += ` AND h.Location LIKE ?`;
+            searchValues.push(`%${location}%`);
+        }
+        if (speciality) {
+            sqlQuery += ` AND s.name LIKE ?`;
+            searchValues.push(`%${speciality}%`);
+        }
+    }
+    // Doctor search logic (unchanged for now, but can be updated similarly if needed)
+    else if (doctor_name) {
+        console.log('Performing doctor search');
+        sqlQuery = `
+            SELECT 
+                d.id AS doctor_id,
+                h.id_hospital AS hospital_id,
+                d.name AS doctor_name, 
+                d.price,  
+                d.description, 
+                d.session_duration, 
+                s.name AS speciality, 
+                h.Name AS hospital_name, 
+                h.Sector, 
+                h.Location, 
+                h.adresse, 
+                h.Phone
+            FROM 
+                doctors d
+            JOIN 
+                specialities s ON s.id = d.speciality_id
+            JOIN 
+                hospital_cnv hc ON hc.id_hospital = d.hospital_id
+            JOIN 
+                hospitals h ON h.id_hospital = hc.id_hospital
+            WHERE 
+                1=1
+        `;
 
-        // Search for doctors by name
-        sqlQuery = `
-            SELECT 
-                doctors.name, 
-                doctors.price, 
-                doctors.discount_price, 
-                doctors.description, 
-                doctors.session_duration, 
-                specialities.name AS speciality, 
-                hospitals.Name AS hospital_name
-            FROM 
-                doctors
-            JOIN 
-                specialities ON specialities.id = doctors.speciality_id
-            JOIN 
-                hospital_cnv ON hospital_cnv.id_hospital = doctors.hospital_id
-            JOIN 
-                hospitals ON hospitals.id_hospital = hospital_cnv.id_hospital
-            WHERE 
-                doctors.name LIKE ?
-        `;
-        searchValues.push(`%${doctor_name}%`);
+        if (doctor_name) {
+            console.log('Doctor name provided:', doctor_name);
+            if (doctor_name.length < 3) {
+                console.log('Validation failed: Doctor name too short');
+                return res.status(400).json({ message: 'Please enter at least 3 characters to search for doctors.' });
+            }
+            sqlQuery += ` AND d.name LIKE ?`;
+            searchValues.push(`%${doctor_name}%`);
+        }
+        if (location) {
+            console.log('Location provided:', location);
+            sqlQuery += ` AND h.Location LIKE ?`;
+            searchValues.push(`%${location}%`);
+        }
+        if (speciality) {
+            console.log('Speciality provided:', speciality);
+            sqlQuery += ` AND s.name LIKE ?`;
+            searchValues.push(`%${speciality}%`);
+        }
     }
-    else if (location && speciality) {
-        // Search for doctors by speciality and location
-        sqlQuery = `
-            SELECT 
-                doctors.name AS doctor_name, 
-                doctors.price, 
-                doctors.discount_price, 
-                doctors.description, 
-                doctors.session_duration, 
-                specialities.name AS speciality, 
-                hospitals.Name AS hospital_name, 
-                hospitals.Sector, 
-                hospitals.Location, 
-                hospitals.adresse, 
-                hospitals.Phone
-            FROM 
-                doctors
-            JOIN 
-                specialities ON specialities.id = doctors.speciality_id
-            JOIN 
-                hospital_cnv ON hospital_cnv.id_hospital = doctors.hospital_id
-            JOIN 
-                hospitals ON hospitals.id_hospital = hospital_cnv.id_hospital
-            WHERE 
-                specialities.name LIKE ? AND hospitals.Location LIKE ?
-        `;
-        searchValues.push(`%${speciality}%`, `%${location}%`);
-    }
-    
-    else if (location) {
-        // Search for hospitals by location
-        sqlQuery = `
-            SELECT 
-                hospitals.Name, 
-                hospitals.Sector, 
-                hospitals.Location, 
-                hospitals.adresse, 
-                hospitals.Phone
-            FROM 
-                hospitals
-            JOIN 
-                hospital_cnv ON hospitals.id_hospital = hospital_cnv.id_hospital 
-            WHERE 
-                hospitals.Location LIKE ?
-        `;
-        searchValues.push(`%${location}%`);
-    }
-    else if (speciality) {
-        // Search for doctors by speciality
-        sqlQuery = `
-            SELECT 
-                doctors.name AS doctor_name, 
-                doctors.price, 
-                doctors.discount_price, 
-                doctors.description, 
-                doctors.session_duration, 
-                specialities.name AS speciality, 
-                hospitals.Name AS hospital_name, 
-                hospitals.Sector, 
-                hospitals.Location, 
-                hospitals.adresse, 
-                hospitals.Phone
-            FROM 
-                doctors
-            JOIN 
-                specialities ON specialities.id = doctors.speciality_id
-            JOIN 
-                hospital_cnv ON hospital_cnv.id_hospital = doctors.hospital_id
-            JOIN 
-                hospitals ON hospitals.id_hospital = hospital_cnv.id_hospital
-            WHERE 
-                specialities.name LIKE ?
-        `;
-        searchValues.push(`%${speciality}%`);
-    }
-    
 
-
-    console.log('Executing query:', sqlQuery); // Log the query
-    console.log('Search values:', searchValues); // Log the search values
+    console.log('Executing query:', sqlQuery);
+    console.log('Search values:', searchValues);
 
     // Execute the query
     pool.query(sqlQuery, searchValues, (err, results) => {
         if (err) {
             console.error('Error performing search:', err);
-            return res.status(500).json({ message: 'Failed to perform search.' });
+            console.error('SQL Error Code:', err.code);
+            console.error('SQL Error Message:', err.sqlMessage);
+            return res.status(500).json({ 
+                message: 'Failed to perform search.', 
+                error: err.message, 
+                sqlErrorCode: err.code, 
+                sqlErrorMessage: err.sqlMessage 
+            });
         }
 
-        // Log the results for debugging
         console.log('Query results:', results);
+        console.log('Search query received:', req.query);
 
-        // Return the results as JSON
         res.status(200).json(results);
     });
 };
 
 // Export the function
-module.exports = {search,};
+module.exports = { search };

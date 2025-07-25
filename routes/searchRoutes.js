@@ -4,6 +4,5 @@ const router = express.Router();
 
 // Route for combined search
 router.get('/search', search);
-
 // Export the router
 module.exports = router;
